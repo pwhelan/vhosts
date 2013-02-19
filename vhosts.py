@@ -17,7 +17,8 @@ import signal
 import time
 
 
-CFG_FILE = '/home/madjester/.vhosts/vhosts.json'
+CFG_DIR = os.path.expanduser(os.path.join("~", "." + 'vhosts'))
+CFG_FILE = CFG_DIR + '/vhosts.json'
 
 _publishers = {}
 
@@ -41,8 +42,8 @@ def daemon_restart(signal, frame):
 				if not vhost in _publishers.keys():
 					_publishers[vhost] = publish(vhost, config['address'])
 				
-				if not os.path.exists('/home/madjester/.vhosts/links/' + vhost):
-					os.symlink(config['vhosts'][vhost], '/home/madjester/.vhosts/links/' + vhost)
+				if not os.path.exists(CFG_DIR + '/links/' + vhost):
+					os.symlink(config['vhosts'][vhost], CFG_DIR + '/links/' + vhost)
 			except Exception as e:
 				print "Error:", e
 
@@ -53,8 +54,8 @@ def daemon_stop(signal, frame):
 		for vhost in config['vhosts']:
 			try:
 				_publishers[publisher].kill()
-				if os.path.exists('/home/madjester/.vhosts/links/' + vhost):
-					os.unlink('/home/madjester/.vhosts/links/' + vhost)
+				if os.path.exists(CFG_DIR + '/links/' + vhost):
+					os.unlink(CFG_DIR + '/links/' + vhost)
 			except Exception as e:
 				print "Error:", e
 		
@@ -77,12 +78,33 @@ def daemon(config):
 		time.sleep(30)
 
 def main():
-	with open(CFG_FILE) as cfg:
-		config = json.load(cfg)
 	
 	if len(sys.argv) < 2:
-		print "usage: (add|list|del|stop|start) <arguments>"
+		print "usage: (add|list|del|stop|start|init) <arguments>"
 		sys.exit(-1)
+	
+	if sys.argv[1] == 'init':
+		if not os.path.exists(CFG_DIR):
+			os.mkdir(CFG_DIR)
+		if not os.path.exists(CFG_DIR + '/links'):
+			os.mkdir(CFG_DIR + '/links')
+		if not os.path.exists(CFG_DIR + '/apache2'):
+			os.mkdir(CFG_DIR + '/apache2')
+		if not os.path.exists(CFG_DIR + '/apache2/vhosts.conf'):
+			with open(CFG_DIR + '/apache2/vhosts.conf', 'w+') as apache:
+				apache.write("<IfModule mod_vhost_alias.c>\n")
+				apache.write("  VirtualDocumentRoot " + CFG_DIR + "/links/%1\n")
+				apache.write("</IfModule>\n")
+		if not os.path.exists(CFG_DIR + '/vhosts.json'):
+			with open(CFG_FILE, 'w+') as cfg:
+				config = {'pid': -1, 'vhosts': {}, 'address':'127.0.0.1'}
+				json.dump(config, cfg)
+		
+		sys.exit(0)
+	
+	
+	with open(CFG_FILE) as cfg:
+		config = json.load(cfg)
 	
 	if sys.argv[1] == 'stop':
 		os.kill(config['pid'], signal.SIGTERM)

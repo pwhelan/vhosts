@@ -6,21 +6,25 @@ Virtual Host utility for exposing your projects with virtual hosts with Apache. 
 Setup
 =====
 
-Create the directory $HOME/.vhosts with the following subdirectories:
+Initialize the main vhosts setting directory by executing the init subcommand:
 
-    .vhosts/
-        apache2/
-        links/
-
-Place the following file into $HOME/.vhosts/apache2/vhosts.conf:
-
-<IfModule mod_vhost_alias.c>
-  VirtualDocumentRoot /home/username/.vhosts/links/%1
-</IfModule>
+    user$ vhosts init
 
 Include the following line in your apache configuration inside the VirtualHosts section:
 
     Include /home/username/.vhosts/apache2/vhosts.conf
+
+You should now be ready to start up vhosts and start exposing projects.
+
+    user$ vhosts start
+
+*NOTE* by default the virtual hosts resolve to 127.0.0.1 for security reasons.
+You can change the address setting in ~/.vhosts/vhosts.json to expose your
+virtual hosts to your LAN. Restart vhosts after to correctly expose any
+vhosts you've already configured.
+
+    user$ vhosts stop
+    user$ vhosts start
 
 Usage
 =====
