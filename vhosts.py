@@ -107,7 +107,8 @@ def main():
 		
 		with open(CFG_FILE, 'w') as cfg:
 			json.dump(config, cfg)
-			os.kill(config['pid'], signal.SIGHUP)
+			if not config['pid'] == -1:
+				os.kill(config['pid'], signal.SIGHUP)
 		
 	elif sys.argv[1] == 'list':
 		maxlen = 0
