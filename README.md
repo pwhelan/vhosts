@@ -38,3 +38,14 @@ To add a virtual host:
     user$ vhosts add [vhost] [documentroot]
 
 Your project will now be accesible from https://vhost.local.
+
+To remove a virtual host:
+
+    user$ vhosts del [vhost]
+
+Now the project is no longer accesible.
+
+To list all the currently exposed virtual hosts:
+
+    user$ vhosts list
+
