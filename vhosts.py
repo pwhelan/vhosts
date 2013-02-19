@@ -53,7 +53,7 @@ def daemon_stop(signal, frame):
 		
 		for vhost in config['vhosts']:
 			try:
-				_publishers[publisher].kill()
+				_publishers[vhost].kill()
 				if os.path.exists(CFG_DIR + '/links/' + vhost):
 					os.unlink(CFG_DIR + '/links/' + vhost)
 			except Exception as e:
