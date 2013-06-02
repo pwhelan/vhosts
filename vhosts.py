@@ -15,6 +15,7 @@ import os.path
 from pprint import pprint
 import signal
 import time
+from safeio import openlocked
 
 
 CFG_DIR = os.path.expanduser(os.path.join("~", "." + 'vhosts'))
@@ -29,7 +30,7 @@ def publish(vhost, address):
 	return publisher
 
 def daemon_restart(signal, frame):
-	with open(CFG_FILE) as cfg:
+	with openlocked(CFG_FILE) as cfg:
 		config = json.load(cfg)
 		
 		for publisher in _publishers.keys():
@@ -45,10 +46,10 @@ def daemon_restart(signal, frame):
 				if not os.path.exists(CFG_DIR + '/links/' + vhost):
 					os.symlink(config['vhosts'][vhost], CFG_DIR + '/links/' + vhost)
 			except Exception as e:
-				print "Error:", e
+				print "Start Error for ", vhost, ":", e
 
 def daemon_stop(signal, frame):
-	with open(CFG_FILE) as cfg:
+	with openlocked(CFG_FILE) as cfg:
 		config = json.load(cfg)
 		
 		for vhost in config['vhosts']:
@@ -57,10 +58,10 @@ def daemon_stop(signal, frame):
 				if os.path.exists(CFG_DIR + '/links/' + vhost):
 					os.unlink(CFG_DIR + '/links/' + vhost)
 			except Exception as e:
-				print "Error:", e
+				print "Stop Error:", e
 		
 		sys.exit(0)
-			
+
 def daemon(config):
 	if os.path.exists('/proc/' + str(config['pid'])) and not int(config['pid']) == -1:
 		return config['pid']
@@ -76,9 +77,10 @@ def daemon(config):
 	
 	while True:
 		time.sleep(30)
+	
+	sys.exit(0)
 
 def main():
-	
 	if len(sys.argv) < 2:
 		print "usage: (add|list|del|stop|start|init) <arguments>"
 		sys.exit(-1)
@@ -91,23 +93,26 @@ def main():
 		if not os.path.exists(CFG_DIR + '/apache2'):
 			os.mkdir(CFG_DIR + '/apache2')
 		if not os.path.exists(CFG_DIR + '/apache2/vhosts.conf'):
-			with open(CFG_DIR + '/apache2/vhosts.conf', 'w+') as apache:
+			with openlocked(CFG_DIR + '/apache2/vhosts.conf', 'w+', 'x') as apache:
 				apache.write("<IfModule mod_vhost_alias.c>\n")
 				apache.write("  VirtualDocumentRoot " + CFG_DIR + "/links/%1\n")
 				apache.write("</IfModule>\n")
 		if not os.path.exists(CFG_DIR + '/vhosts.json'):
-			with open(CFG_FILE, 'w+') as cfg:
+			with openlocked(CFG_FILE, 'w+', 'x') as cfg:
 				config = {'pid': -1, 'vhosts': {}, 'address':'127.0.0.1'}
 				json.dump(config, cfg)
 		
 		sys.exit(0)
 	
 	
-	with open(CFG_FILE) as cfg:
+	with openlocked(CFG_FILE) as cfg:
 		config = json.load(cfg)
 	
 	if sys.argv[1] == 'stop':
 		os.kill(config['pid'], signal.SIGTERM)
+		config['pid'] = -1
+		with openlocked(CFG_FILE, 'w', 'x') as cfg:
+			json.dump(config, cfg)
 	
 	elif sys.argv[1] == 'add' or sys.argv[1] == 'del':
 		
@@ -127,7 +132,7 @@ def main():
 			if sys.argv[2] in config['vhosts']:
 				del(config['vhosts'][sys.argv[2]])
 		
-		with open(CFG_FILE, 'w') as cfg:
+		with openlocked(CFG_FILE, 'w', 'x') as cfg:
 			json.dump(config, cfg)
 			if not config['pid'] == -1:
 				os.kill(config['pid'], signal.SIGHUP)
@@ -145,7 +150,8 @@ def main():
 		pid = config['pid']
 		config['pid'] = daemon(config)
 		if not pid == config['pid']:
-			with open(CFG_FILE, 'w') as cfg:
+			with openlocked(CFG_FILE, 'w', 'x') as cfg:
+				print "WRITING CFG FILE:", os.getpid()
 				json.dump(config, cfg)
 
 if __name__ == "__main__":
