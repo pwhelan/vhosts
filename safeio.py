@@ -30,8 +30,15 @@ class openlocked(object):
 		self.__lock__['fmode'] = mode
 		self.__lock__['lmode'] = lockmode
 		
-		omask = os.O_RDWR if self.__lock__['fmode'][0] == 'w' else os.O_RDONLY
-		if len(self.__lock__['fmode']) == 2 and self.__lock__['fmode'][1] == '+':
+		omask = 0
+		if mode.count('w') and mode.count('r'):
+			omask = os.O_RDWR
+		elif mode.count('w') and not mode.count('r'):
+			omask = os.O_WRONLY
+		else:
+			omask = os.O_RDONLY
+		
+		if mode.count('+'):
 			omask |= os.O_CREAT
 		
 		self.__lock__['fd'] = os.open(fname, omask)
