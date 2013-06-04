@@ -49,7 +49,7 @@ def daemon_restart(signal, frame):
 				print "Start Error for ", vhost, ":", e
 
 def daemon_stop(signal, frame):
-	with openlocked(CFG_FILE) as cfg:
+	with openlocked(CFG_FILE, 'r', 's') as cfg:
 		config = json.load(cfg)
 		
 		for vhost in config['vhosts']:
@@ -59,8 +59,12 @@ def daemon_stop(signal, frame):
 					os.unlink(CFG_DIR + '/links/' + vhost)
 			except Exception as e:
 				print "Stop Error:", e
-		
-		sys.exit(0)
+	
+	with openlocked(CFG_FILE, 'w', 'x') as cfg:
+		config['pid'] = -1
+		json.dump(config, cfg)
+	
+	sys.exit(0)
 
 def daemon(config):
 	if os.path.exists('/proc/' + str(config['pid'])) and not int(config['pid']) == -1:
@@ -109,10 +113,9 @@ def main():
 		config = json.load(cfg)
 	
 	if sys.argv[1] == 'stop':
-		os.kill(config['pid'], signal.SIGTERM)
-		config['pid'] = -1
-		with openlocked(CFG_FILE, 'w', 'x') as cfg:
-			json.dump(config, cfg)
+		if not config['pid'] == -1:
+			os.kill(config['pid'], signal.SIGTERM)
+		sys.exit(0)
 	
 	elif sys.argv[1] == 'add' or sys.argv[1] == 'del':
 		
@@ -151,7 +154,6 @@ def main():
 		config['pid'] = daemon(config)
 		if not pid == config['pid']:
 			with openlocked(CFG_FILE, 'w', 'x') as cfg:
-				print "WRITING CFG FILE:", os.getpid()
 				json.dump(config, cfg)
 
 if __name__ == "__main__":
