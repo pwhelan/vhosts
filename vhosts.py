@@ -15,7 +15,7 @@ import os.path
 from pprint import pprint
 import signal
 import time
-from safeio import openlocked
+from atomicfile import AtomicFile
 
 
 CFG_DIR = os.path.expanduser(os.path.join("~", "." + 'vhosts'))
@@ -30,7 +30,8 @@ def publish(vhost, address):
 	return publisher
 
 def daemon_restart(signal, frame):
-	with openlocked(CFG_FILE) as cfg:
+	with open(CFG_FILE, 'r') as cfg:
+		print "--READ--", os.getpid()
 		config = json.load(cfg)
 		
 		for publisher in _publishers.keys():
@@ -49,7 +50,7 @@ def daemon_restart(signal, frame):
 				print "Start Error for ", vhost, ":", e
 
 def daemon_stop(signal, frame):
-	with openlocked(CFG_FILE, 'r', 's') as cfg:
+	with open(CFG_FILE, 'r') as cfg:
 		config = json.load(cfg)
 		
 		for vhost in config['vhosts']:
@@ -60,7 +61,7 @@ def daemon_stop(signal, frame):
 			except Exception as e:
 				print "Stop Error:", e
 	
-	with openlocked(CFG_FILE, 'w', 'x') as cfg:
+	with AtomicFile(CFG_FILE) as cfg:
 		config['pid'] = -1
 		json.dump(config, cfg)
 	
@@ -97,19 +98,19 @@ def main():
 		if not os.path.exists(CFG_DIR + '/apache2'):
 			os.mkdir(CFG_DIR + '/apache2')
 		if not os.path.exists(CFG_DIR + '/apache2/vhosts.conf'):
-			with openlocked(CFG_DIR + '/apache2/vhosts.conf', 'w+', 'x') as apache:
+			with open(CFG_DIR + '/apache2/vhosts.conf', 'w') as apache:
 				apache.write("<IfModule mod_vhost_alias.c>\n")
 				apache.write("  VirtualDocumentRoot " + CFG_DIR + "/links/%1\n")
 				apache.write("</IfModule>\n")
 		if not os.path.exists(CFG_DIR + '/vhosts.json'):
-			with openlocked(CFG_FILE, 'w+', 'x') as cfg:
+			with open(CFG_FILE, 'w') as cfg:
 				config = {'pid': -1, 'vhosts': {}, 'address':'127.0.0.1'}
 				json.dump(config, cfg)
 		
 		sys.exit(0)
 	
 	
-	with openlocked(CFG_FILE) as cfg:
+	with open(CFG_FILE, 'r') as cfg:
 		config = json.load(cfg)
 	
 	if sys.argv[1] == 'stop':
@@ -135,7 +136,7 @@ def main():
 			if sys.argv[2] in config['vhosts']:
 				del(config['vhosts'][sys.argv[2]])
 		
-		with openlocked(CFG_FILE, 'w', 'x') as cfg:
+		with AtomicFile(CFG_FILE, 'w') as cfg:
 			json.dump(config, cfg)
 			if not config['pid'] == -1:
 				os.kill(config['pid'], signal.SIGHUP)
@@ -153,8 +154,8 @@ def main():
 		pid = config['pid']
 		config['pid'] = daemon(config)
 		if not pid == config['pid']:
-			with openlocked(CFG_FILE, 'w', 'x') as cfg:
-				json.dump(config, cfg)
+			with AtomicFile(CFG_FILE, 'w') as cfg:
+				output = json.dump(config, cfg)
 
 if __name__ == "__main__":
 	main()
