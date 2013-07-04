@@ -31,7 +31,6 @@ def publish(vhost, address):
 
 def daemon_restart(signal, frame):
 	with open(CFG_FILE, 'r') as cfg:
-		print "--READ--", os.getpid()
 		config = json.load(cfg)
 		
 		for publisher in _publishers.keys():
@@ -85,7 +84,17 @@ def daemon(config):
 	
 	sys.exit(0)
 
+def singlecommandalias():
+	parts = sys.argv[0].split('-')
+	if len(parts) >= 2 and os.path.basename(parts[0]) == 'vhosts':
+		sys.argv.pop(0)
+		sys.argv.insert(0, parts[0])
+		sys.argv.insert(1, parts[1])
+	
+
 def main():
+	singlecommandalias()
+		
 	if len(sys.argv) < 2:
 		print "usage: (add|list|del|stop|start|init) <arguments>"
 		sys.exit(-1)
